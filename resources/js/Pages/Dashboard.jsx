@@ -1,51 +1,45 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
+import { Head, usePage } from "@inertiajs/react";
+import { useEffect, useMemo, useState } from "react";
 
-const STORAGE_KEY = 'edc-weekly-schedule-demo-v3';
+const STORAGE_KEY = "edc-weekly-schedule-demo-v3";
+const RIG_STORAGE_KEY = "edc-rig-board-v1";
 const WEATHER_LATITUDE = 29.3759;
 const WEATHER_LONGITUDE = 47.9774;
-const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday'];
-const RIG_REGIONS = ['Saudi Arabia', 'Abu Rudies Rigs'];
-const SLOT_COUNT = 6;
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday"];
+const RIG_REGIONS = ["Saudi Arabia", "Abu Rudies Rigs"];
+const SLOT_COUNT = 11;
 const RIG_SLOT_COUNT = 12;
-const RIG_SLOT_COLUMNS = 6;
+const RIG_SLOT_COLUMNS = 9;
 const COLOR_OPTIONS = [
-    { key: 'offshore', label: 'Offshore', value: '#16a34a' },
-    { key: 'work-over', label: 'Work Over', value: '#2563eb' },
-    { key: 'land', label: 'Land', value: '#dc2626' },
+    { key: "offshore", label: "Offshore", value: "#16a34a" },
+    { key: "work-over", label: "Work Over", value: "#2563eb" },
+    { key: "land", label: "Land", value: "#dc2626" },
 ];
-const DAY_TEMPERATURES = {
-    Sunday: '18°C',
-    Monday: '19°C',
-    Tuesday: '20°C',
-    Wednesday: '18°C',
-    Thursday: '17°C',
-};
 
 function getWeatherLabel(code) {
     if (code === 0) {
-        return { label: 'Clear', icon: '☀️' };
+        return { label: "Clear", icon: "☀️" };
     }
     if ([1, 2, 3].includes(code)) {
-        return { label: 'Partly cloudy', icon: '⛅' };
+        return { label: "Partly cloudy", icon: "⛅" };
     }
     if ([45, 48].includes(code)) {
-        return { label: 'Foggy', icon: '🌫️' };
+        return { label: "Foggy", icon: "🌫️" };
     }
     if ([51, 53, 55, 56, 57].includes(code)) {
-        return { label: 'Drizzle', icon: '🌦️' };
+        return { label: "Drizzle", icon: "🌦️" };
     }
     if ([61, 63, 65, 66, 67, 80, 81, 82].includes(code)) {
-        return { label: 'Rain', icon: '🌧️' };
+        return { label: "Rain", icon: "🌧️" };
     }
     if ([71, 73, 75, 77, 85, 86].includes(code)) {
-        return { label: 'Snow', icon: '❄️' };
+        return { label: "Snow", icon: "❄️" };
     }
     if ([95, 96, 99].includes(code)) {
-        return { label: 'Thunderstorm', icon: '⛈️' };
+        return { label: "Thunderstorm", icon: "⛈️" };
     }
-    return { label: 'Weather update', icon: '☁️' };
+    return { label: "Weather update", icon: "☁️" };
 }
 
 function getCurrentIsoWeek() {
@@ -57,16 +51,15 @@ function getCurrentIsoWeek() {
     utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNumber);
     const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
     const weekNumber = Math.ceil(((utcDate - yearStart) / 86400000 + 1) / 7);
-    return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, '0')}`;
+    return `${utcDate.getUTCFullYear()}-W${String(weekNumber).padStart(2, "0")}`;
 }
 
 function getSundayToThursdayForWeek(isoWeek) {
-    const match = /^(\d{4})-W(\d{2})$/.exec(isoWeek || '');
+    const match = /^(\d{4})-W(\d{2})$/.exec(isoWeek || "");
     if (!match) {
         return DAYS.map((dayName) => ({
             dayName,
-            dateLabel: '',
-            temperature: DAY_TEMPERATURES[dayName],
+            dateLabel: "",
         }));
     }
 
@@ -88,8 +81,10 @@ function getSundayToThursdayForWeek(isoWeek) {
         date.setUTCDate(sunday.getUTCDate() + index);
         return {
             dayName,
-            dateLabel: date.toLocaleDateString([], { month: 'short', day: '2-digit' }),
-            temperature: DAY_TEMPERATURES[dayName],
+            dateLabel: date.toLocaleDateString([], {
+                month: "short",
+                day: "2-digit",
+            }),
         };
     });
 }
@@ -101,15 +96,26 @@ export default function Dashboard() {
     const [scheduleByWeek, setScheduleByWeek] = useState({});
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [activeCell, setActiveCell] = useState({ day: DAYS[0], slot: 1 });
-    const [note, setNote] = useState('');
+    const [note, setNote] = useState("");
+    const [num, setNum] = useState(0);
     const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[1].value);
     const [nextSlotsCount, setNextSlotsCount] = useState(0);
     const [liveWeather, setLiveWeather] = useState({
-        temperature: '--°C',
-        humidity: '--%',
-        condition: 'Loading',
-        icon: '☁️',
+        temperature: "--°C",
+        humidity: "--%",
+        condition: "Loading",
+        icon: "☁️",
     });
+
+    const [rigData, setRigData] = useState({});
+    const [isRigModalOpen, setIsRigModalOpen] = useState(false);
+    const [activeRigCell, setActiveRigCell] = useState({
+        region: RIG_REGIONS[0],
+        slot: 1,
+    });
+    const [rigNote, setRigNote] = useState("");
+    const [rigNum, setRigNum] = useState(0);
+    const [rigColor, setRigColor] = useState(COLOR_OPTIONS[0].value);
 
     useEffect(() => {
         try {
@@ -119,11 +125,11 @@ export default function Dashboard() {
             }
 
             const parsedData = JSON.parse(rawData);
-            if (parsedData && typeof parsedData === 'object') {
+            if (parsedData && typeof parsedData === "object") {
                 setScheduleByWeek(parsedData);
             }
         } catch (error) {
-            console.error('Failed to read schedule from localStorage:', error);
+            console.error("Failed to read schedule from localStorage:", error);
         }
     }, []);
 
@@ -162,8 +168,8 @@ export default function Dashboard() {
                     icon: weatherMeta.icon,
                 });
             } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('Failed to fetch live weather', error);
+                if (error.name !== "AbortError") {
+                    console.error("Failed to fetch live weather", error);
                 }
             }
         }
@@ -178,16 +184,16 @@ export default function Dashboard() {
     }, []);
 
     const formattedTime = time.toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
     });
 
     const formattedDate = time.toLocaleDateString([], {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
     });
 
     const weekData = scheduleByWeek[selectedWeek] || {};
@@ -195,25 +201,41 @@ export default function Dashboard() {
         () => getSundayToThursdayForWeek(selectedWeek),
         [selectedWeek],
     );
-    const operationalWindow = `${dayInfo[0]?.dateLabel || ''} — ${dayInfo[dayInfo.length - 1]?.dateLabel || ''}`;
+    const operationalWindow = `${dayInfo[0]?.dateLabel || ""} — ${dayInfo[dayInfo.length - 1]?.dateLabel || ""}`;
     const activeView = useMemo(() => {
-        const query = url.split('?')[1] || '';
+        const query = url.split("?")[1] || "";
         const params = new URLSearchParams(query);
-        return params.get('view') === 'rig' ? 'rig' : 'schedule';
+        return params.get("view") === "rig" ? "rig" : "schedule";
     }, [url]);
 
     const saveToLocalStorage = (nextState) => {
         setScheduleByWeek(nextState);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
     };
+    const saveRigToLocalStorage = (nextState) => {
+        setRigData(nextState);
+        localStorage.setItem(RIG_STORAGE_KEY, JSON.stringify(nextState));
+    };
 
     const openSlotModal = (day, slot) => {
         const existing = weekData[day]?.[slot];
         setActiveCell({ day, slot });
-        setNote(existing?.note || '');
+        setNote(existing?.note || "");
+        setNum(existing?.num || 0);
         setSelectedColor(existing?.bgColor || COLOR_OPTIONS[1].value);
         setNextSlotsCount(0);
         setIsModalOpen(true);
+    };
+    const openRigModal = (region, slot) => {
+        const existing = rigData?.[region]?.[slot];
+
+        setActiveRigCell({ region, slot });
+
+        setRigNote(existing?.note || "");
+        setRigNum(existing?.num || 0);
+        setRigColor(existing?.bgColor || COLOR_OPTIONS[0].value);
+
+        setIsRigModalOpen(true);
     };
 
     const handleSaveSlot = () => {
@@ -247,6 +269,7 @@ export default function Dashboard() {
                 note: trimmedNote,
                 bgColor: selectedColor,
                 slotNumber: slot,
+                num: num,
                 groupId,
             };
         }
@@ -255,29 +278,165 @@ export default function Dashboard() {
         setIsModalOpen(false);
     };
 
-   const handleClearSlot = () => {
-    const nextState = structuredClone(scheduleByWeek);
-    const weekRecord = nextState[selectedWeek];
-    const dayRecord = weekRecord?.[activeCell.day];
+    const handleClearSlot = () => {
+        const nextState = structuredClone(scheduleByWeek);
+        const weekRecord = nextState[selectedWeek];
+        const dayRecord = weekRecord?.[activeCell.day];
 
-    if (!dayRecord?.[activeCell.slot]) {
-        return;
-    }
+        if (!dayRecord?.[activeCell.slot]) {
+            return;
+        }
+
+        delete dayRecord[activeCell.slot];
+
+        if (Object.keys(dayRecord).length === 0) {
+            delete weekRecord[activeCell.day];
+        }
+        if (Object.keys(weekRecord).length === 0) {
+            delete nextState[selectedWeek];
+        }
+
+        saveToLocalStorage(nextState);
+        setIsModalOpen(false);
+    };
+
+    const handleSaveRigSlot = () => {
+        const trimmedNote = rigNote.trim();
+
+        if (!trimmedNote) return;
+
+        const nextState = structuredClone(rigData);
+
+        if (!nextState[activeRigCell.region]) {
+            nextState[activeRigCell.region] = {};
+        }
+
+        nextState[activeRigCell.region][activeRigCell.slot] = {
+            note: trimmedNote,
+            num: rigNum,
+            bgColor: rigColor,
+        };
+
+        saveRigToLocalStorage(nextState);
+
+        setIsRigModalOpen(false);
+    };
+    const handleClearRigSlot = () => {
+        const nextState = structuredClone(rigData);
+
+        const regionRecord = nextState?.[activeRigCell.region];
+
+        if (!regionRecord?.[activeRigCell.slot]) {
+            return;
+        }
+
+        delete regionRecord[activeRigCell.slot];
+
+        if (Object.keys(regionRecord).length === 0) {
+            delete nextState[activeRigCell.region];
+        }
+
+        saveRigToLocalStorage(nextState);
+
+        setIsRigModalOpen(false);
+    };
+    useEffect(() => {
+        const header1 = document.getElementById("header-widget1");
+        const header2 = document.getElementById("header-widget2");
+
+        if (header1) {
+            header1.innerHTML = `
+            <div style="display:flex;gap:20px;align-items:center;">
+                <div style="text-align:right">
+                    <div style="font-weight:bold">${formattedTime}</div>
+                    <div style="font-size:10px;color:#94a3b8">${formattedDate}</div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:10px">
+                    <div>${liveWeather.icon}</div>
+                    <div>
+                        <div>${liveWeather.temperature}</div>
+                        <div style="font-size:10px">${liveWeather.humidity}</div>
+                    </div>
+                </div>
+
+<div style="
+                    display:flex;
+                    gap:16px;
+                    align-items:center;
+                    font-size:12px;
+                ">
+                 
 
 
-    delete dayRecord[activeCell.slot];
+            </div>
+  
 
-   
-    if (Object.keys(dayRecord).length === 0) {
-        delete weekRecord[activeCell.day];
-    }
-    if (Object.keys(weekRecord).length === 0) {
-        delete nextState[selectedWeek];
-    }
 
-    saveToLocalStorage(nextState);
-    setIsModalOpen(false);
-};
+        `;
+        }
+        if (header2) {
+            header2.innerHTML = `
+<div style="display:flex;gap:20px;">
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 8px;
+        border-radius:8px;
+        background-color:#1e293b;
+        color:#cbd5e1;
+        font-size:11px;
+    ">
+        <div style="width:8px;height:8px;border-radius:50%;background-color:#16a34a"></div>
+        Offshore
+    </div>
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 8px;
+        border-radius:8px;
+        background-color:#1e293b;
+        color:#cbd5e1;
+        font-size:11px;
+    ">
+        <div style="width:8px;height:8px;border-radius:50%;background-color:#2563eb"></div>
+        Work Over
+    </div>
+    <div style="
+        display:flex;
+        align-items:center;
+        gap:6px;
+        padding:4px 8px;
+        border-radius:8px;
+        background-color:#1e293b;
+        color:#cbd5e1;
+        font-size:11px;
+    ">
+        <div style="width:8px;height:8px;border-radius:50%;background-color:#dc2626"></div>
+        Land
+    </div>
+</div>
+`;
+        }
+    }, [formattedTime, formattedDate, liveWeather]);
+
+    useEffect(() => {
+        try {
+            const rawData = localStorage.getItem(RIG_STORAGE_KEY);
+
+            if (!rawData) return;
+
+            const parsedData = JSON.parse(rawData);
+
+            if (parsedData && typeof parsedData === "object") {
+                setRigData(parsedData);
+            }
+        } catch (error) {
+            console.error("Failed to read rig data:", error);
+        }
+    }, []);
 
     return (
         <AuthenticatedLayout>
@@ -295,7 +454,7 @@ export default function Dashboard() {
                     </div>
 
                     <div className="flex items-end gap-3">
-                        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2">
+                        {/* <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-2">
                             <div className="grid grid-cols-3 gap-4 text-xs">
                                 <div className="flex items-center justify-center gap-2 whitespace-nowrap">
                                     <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
@@ -310,7 +469,7 @@ export default function Dashboard() {
                                     Land
                                 </div>
                             </div>
-                        </div>
+                        </div> */}
 
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                             <label className="mb-1 block text-xs text-slate-400">
@@ -331,132 +490,57 @@ export default function Dashboard() {
                 <div className="flex gap-6">
                     <div className="flex-1 rounded-2xl border border-white/10 bg-[#1a202c]/50 p-6">
                         <h2 className="mb-6 text-xl font-semibold text-white">
-                            {activeView === 'rig'
-                                ? 'Rig Locations Board'
-                                : 'Weekly Schedule Board'}
+                            Weekly Schedule Board
                         </h2>
 
-                        {activeView === 'rig' ? (
-                            <div className="overflow-x-auto">
-                                <div className="mb-4 grid min-w-[600px] grid-cols-7 gap-2">
-                                    <div className="text-xs font-bold text-slate-400">
-                                        REGION / SLOT
-                                    </div>
-                                    {Array.from({ length: RIG_SLOT_COLUMNS }, (_, index) => (
-                                        <div
-                                            key={`rig-head-${index + 1}`}
-                                            className="text-center text-xs font-bold text-slate-500"
-                                        >
-                                            SLOT {String(index + 1).padStart(2, '0')}
-                                        </div>
-                                    ))}
+                        <div className="overflow-x-auto">
+                            <div className="mb-4 grid min-w-[900px] grid-cols-12 gap-2">
+                                <div className="text-xs font-bold text-slate-400">
+                                    DAY / SLOT
                                 </div>
-                                <div className="space-y-3 min-w-[600px]">
-                                    {RIG_REGIONS.map((region) => (
-                                        <div
-                                            key={region}
-                                            className="grid grid-cols-7 gap-2"
-                                        >
-                                            <div className="row-span-2 rounded-lg border border-white/10 bg-[#0f172a] p-3 flex items-center justify-center text-center">
-                                                <div className="text-sm font-bold text-white">
-                                                    {region}
-                                                </div>
-                                            </div>
-                                            {Array.from(
-                                                { length: RIG_SLOT_COLUMNS },
-                                                (_, index) => (
-                                                    <div
-                                                        key={`${region}-top-${index + 1}`}
-                                                        className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600"
-                                                    >
-                                                        <div className="text-center">
-                                                            <div className="text-[11px] font-bold text-slate-500">
-                                                                SLOT {String(index + 1).padStart(2, '0')}
-                                                            </div>
-                                                            <span className="text-2xl">+</span>
-                                                        </div>
-                                                    </div>
-                                                ),
-                                            )}
-                                            {Array.from(
-                                                { length: RIG_SLOT_COLUMNS },
-                                                (_, index) => (
-                                                    <div
-                                                        key={`${region}-bottom-${index + 1}`}
-                                                        className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600"
-                                                    >
-                                                        <div className="text-center">
-                                                            <div className="text-[11px] font-bold text-slate-500">
-                                                                SLOT {String(index + 1 + RIG_SLOT_COLUMNS).padStart(2, '0')}
-                                                            </div>
-                                                            <span className="text-2xl">+</span>
-                                                        </div>
-                                                    </div>
-                                                ),
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <div className="mb-4 grid min-w-[600px] grid-cols-7 gap-2">
-                                    <div className="text-xs font-bold text-slate-400">
-                                        DAY / SLOT
-                                    </div>
 
-                                    {Array.from({ length: SLOT_COUNT }, (_, index) => (
+                                {Array.from(
+                                    { length: SLOT_COUNT },
+                                    (_, index) => (
                                         <div
                                             key={index + 1}
                                             className="text-center text-xs font-bold text-slate-500"
                                         >
-                                            SLOT {String(index + 1).padStart(2, '0')}
+                                            SLOT{" "}
+                                            {String(index + 1).padStart(2, "0")}
                                         </div>
-                                    ))}
-                                </div>
+                                    ),
+                                )}
+                            </div>
 
-                                <div className="space-y-3 min-w-[600px]">
-                                    {dayInfo.map((day) => (
-                                        <div
-                                            key={day.dayName}
-                                            className="grid grid-cols-7 gap-2"
-                                        >
-                                            <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
-                                                <div className="text-sm font-bold text-white">
-                                                    {day.dayName}
-                                                </div>
-                                                <div className="text-[11px] text-slate-400">
-                                                    {day.dateLabel}
-                                                </div>
-                                                <div className="text-[11px] text-slate-500">
-                                                    {day.temperature}
-                                                </div>
+                            <div className="space-y-3 min-w-[900px]">
+                                {dayInfo.map((day) => (
+                                    <div
+                                        key={day.dayName}
+                                        className="grid grid-cols-12 gap-2"
+                                    >
+                                        <div className="rounded-lg border border-white/10 bg-[#0f172a] p-3">
+                                            <div className="text-sm font-bold text-white">
+                                                {day.dayName}
                                             </div>
+                                            <div className="text-[11px] text-slate-400">
+                                                {day.dateLabel}
+                                            </div>
+                                            <div className="text-[11px] text-slate-500">
+                                                {day.temperature}
+                                            </div>
+                                        </div>
 
-                                            {Array.from(
-                                                { length: SLOT_COUNT },
-                                                (_, index) => {
-                                                    const slot = index + 1;
-                                                    const item = weekData[day.dayName]?.[slot];
+                                        {Array.from(
+                                            { length: SLOT_COUNT },
+                                            (_, index) => {
+                                                const slot = index + 1;
+                                                const item =
+                                                    weekData[day.dayName]?.[
+                                                        slot
+                                                    ];
 
-                                                    if (!item) {
-                                                        return (
-                                                            <button
-                                                                type="button"
-                                                                key={`${day.dayName}-${slot}`}
-                                                                onClick={() =>
-                                                                    openSlotModal(
-                                                                        day.dayName,
-                                                                        slot,
-                                                                    )
-                                                                }
-                                                                className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white/5 transition"
-                                                            >
-                                                                <span className="text-2xl">+</span>
-                                                            </button>
-                                                        );
-                                                    }
-
+                                                if (!item) {
                                                     return (
                                                         <button
                                                             type="button"
@@ -467,29 +551,51 @@ export default function Dashboard() {
                                                                     slot,
                                                                 )
                                                             }
-                                                            className="h-20 rounded-lg border border-white/10 p-2 text-[10px] flex flex-col justify-center transition hover:scale-[1.02] hover:shadow-[0_0_12px_rgba(59,130,246,0.2)]"
-                                                            style={{
-                                                                backgroundColor: item.bgColor,
-                                                            }}
+                                                            className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white/5 transition"
                                                         >
-                                                            <div className="font-bold truncate">
-                                                                Slot {slot}
-                                                            </div>
-                                                            <div className="text-[9px] opacity-80 mt-1 line-clamp-2">
-                                                                {item.note}
-                                                            </div>
+                                                            <span className="text-2xl">
+                                                                +
+                                                            </span>
                                                         </button>
                                                     );
-                                                },
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                                }
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={`${day.dayName}-${slot}`}
+                                                        onClick={() =>
+                                                            openSlotModal(
+                                                                day.dayName,
+                                                                slot,
+                                                            )
+                                                        }
+                                                        className="h-20 rounded-lg border border-white/10 p-2 text-[10px] flex flex-col justify-center transition hover:scale-[1.02] hover:shadow-[0_0_12px_rgba(59,130,246,0.2)]"
+                                                        style={{
+                                                            backgroundColor:
+                                                                item.bgColor,
+                                                        }}
+                                                    >
+                                                        <div className="font-bold text-xl truncate">
+                                                            {/* Slot {slot} */}
+                                                            {item.num != 0
+                                                                ? item.num
+                                                                : ""}
+                                                        </div>
+                                                        <div className="text-[12px] opacity-80 mt-1 line-clamp-2">
+                                                            {item.note}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                ))}
                             </div>
-                        )}
+                        </div>
                     </div>
 
-                    <div className="w-80 space-y-6">
+                    {/* <div className="w-80 space-y-6">
                         <div className="rounded-2xl border border-white/10 bg-[#1a202c]/50 p-6">
                             <div className="flex flex-col items-center text-center">
                                 <div className="text-3xl font-bold text-white font-mono">
@@ -537,6 +643,183 @@ export default function Dashboard() {
                                 <p>Set number of next slots to fill second, third, and more.</p>
                             </div>
                         </div>
+                    </div> */}
+                </div>
+
+                <div className="flex gap-6">
+                    <div className="flex-1 rounded-2xl border border-white/10 bg-[#1a202c]/50 p-6">
+                        <h2 className="mb-6 text-xl font-semibold text-white">
+                            Rig Locations Board
+                        </h2>
+
+                        <div className="overflow-x-auto">
+                            <div className="mb-4 grid min-w-[600px] grid-cols-10 gap-2">
+                                <div className="text-xs font-bold text-slate-400">
+                                    REGION / SLOT
+                                </div>
+                                {/* {Array.from(
+                                    { length: RIG_SLOT_COLUMNS },
+                                    (_, index) => (
+                                        <div
+                                            key={`rig-head-${index + 1}`}
+                                            className="text-center text-xs font-bold text-slate-500"
+                                        >
+                                            #{" "}
+                                            {String(index + 1).padStart(2, "0")}
+                                        </div>
+                                    ),
+                                )} */}
+                            </div>
+                            <div className="space-y-3 min-w-[600px]">
+                                {RIG_REGIONS.map((region) => (
+                                    <div
+                                        key={region}
+                                        className="grid grid-cols-10 gap-2"
+                                    >
+                                        <div className="row-span-3 rounded-lg border border-white/10 bg-[#0f172a] p-3 flex items-center justify-center text-center">
+                                            <div className="text-sm font-bold text-white">
+                                                {region}
+                                            </div>
+                                        </div>
+                                        {Array.from(
+                                            { length: RIG_SLOT_COLUMNS },
+                                            (_, index) => {
+                                                const slot = index + 1;
+                                                const item =
+                                                    rigData?.[region]?.[slot];
+
+                                                if (!item) {
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={`${region}-top-${slot}`}
+                                                            onClick={() =>
+                                                                openRigModal(
+                                                                    region,
+                                                                    slot,
+                                                                )
+                                                            }
+                                                            className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white/5 transition"
+                                                        >
+                                                            <div className="text-center">
+                                                                <div className="text-[11px] font-bold text-slate-500">
+                                                                    SLOT{" "}
+                                                                    {String(
+                                                                        slot,
+                                                                    ).padStart(
+                                                                        2,
+                                                                        "0",
+                                                                    )}
+                                                                </div>
+
+                                                                <span className="text-2xl">
+                                                                    +
+                                                                </span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={`${region}-top-${slot}`}
+                                                        onClick={() =>
+                                                            openRigModal(
+                                                                region,
+                                                                slot,
+                                                            )
+                                                        }
+                                                        className="h-20 rounded-lg border border-white/10 p-2 text-[10px] flex flex-col justify-center transition hover:scale-[1.02]"
+                                                        style={{
+                                                            backgroundColor:
+                                                                item.bgColor,
+                                                        }}
+                                                    >
+                                                        <div className="font-bold text-xl truncate">
+                                                            {item.num || ""}
+                                                        </div>
+
+                                                        <div className="text-[12px] opacity-80 mt-1 line-clamp-2">
+                                                            {item.note}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            },
+                                        )}
+                                        {Array.from(
+                                            { length: RIG_SLOT_COLUMNS },
+                                            (_, index) => {
+                                                const slot =
+                                                    index +
+                                                    1 +
+                                                    RIG_SLOT_COLUMNS;
+                                                const item =
+                                                    rigData?.[region]?.[slot];
+
+                                                if (!item) {
+                                                    return (
+                                                        <button
+                                                            type="button"
+                                                            key={`${region}-top-${slot}`}
+                                                            onClick={() =>
+                                                                openRigModal(
+                                                                    region,
+                                                                    slot,
+                                                                )
+                                                            }
+                                                            className="h-20 bg-[#0b1220] border border-white/5 rounded-lg flex items-center justify-center text-slate-600 hover:bg-white/5 transition"
+                                                        >
+                                                            <div className="text-center">
+                                                                <div className="text-[11px] font-bold text-slate-500">
+                                                                    SLOT{" "}
+                                                                    {String(
+                                                                        slot,
+                                                                    ).padStart(
+                                                                        2,
+                                                                        "0",
+                                                                    )}
+                                                                </div>
+
+                                                                <span className="text-2xl">
+                                                                    +
+                                                                </span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={`${region}-top-${slot}`}
+                                                        onClick={() =>
+                                                            openRigModal(
+                                                                region,
+                                                                slot,
+                                                            )
+                                                        }
+                                                        className="h-20 rounded-lg border border-white/10 p-2 text-[10px] flex flex-col justify-center transition hover:scale-[1.02]"
+                                                        style={{
+                                                            backgroundColor:
+                                                                item.bgColor,
+                                                        }}
+                                                    >
+                                                        <div className="font-bold text-xl truncate">
+                                                            {item.num || ""}
+                                                        </div>
+
+                                                        <div className="text-[12px] opacity-80 mt-1 line-clamp-2">
+                                                            {item.note}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            },
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -548,8 +831,20 @@ export default function Dashboard() {
                             Edit Slot
                         </h3>
                         <p className="mb-4 text-xs text-slate-400">
-                            {selectedWeek} | {activeCell.day} | Slot {activeCell.slot}
+                            {selectedWeek} | {activeCell.day} | Slot{" "}
+                            {activeCell.slot}
                         </p>
+
+                        <label className="mb-1 block text-xs text-slate-400">
+                            Number
+                        </label>
+                        <input
+                            type="number"
+                            value={num}
+                            onChange={(event) => setNum(event.target.value)}
+                            placeholder="Enter number for slot..."
+                            className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+                        />
 
                         <label className="mb-1 block text-xs text-slate-400">
                             Note
@@ -558,7 +853,7 @@ export default function Dashboard() {
                             value={note}
                             onChange={(event) => setNote(event.target.value)}
                             placeholder="Write schedule note..."
-                            className="h-24 w-full rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+                            className="h-12 w-full rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white placeholder:text-slate-500 focus:outline-none"
                         />
 
                         <label className="mb-2 mt-4 block text-xs text-slate-400">
@@ -570,8 +865,8 @@ export default function Dashboard() {
                                     key={option.key}
                                     className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
                                         selectedColor === option.value
-                                            ? 'border-white/30 bg-white/10 text-white'
-                                            : 'border-white/10 bg-white/5 text-slate-300'
+                                            ? "border-white/30 bg-white/10 text-white"
+                                            : "border-white/10 bg-white/5 text-slate-300"
                                     }`}
                                 >
                                     <input
@@ -585,7 +880,9 @@ export default function Dashboard() {
                                     />
                                     <span
                                         className="h-3 w-3 rounded-full"
-                                        style={{ backgroundColor: option.value }}
+                                        style={{
+                                            backgroundColor: option.value,
+                                        }}
                                     />
                                     {option.label}
                                 </label>
@@ -637,6 +934,101 @@ export default function Dashboard() {
                                 className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500"
                             >
                                 Save slot
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {isRigModalOpen && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+                    <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#111827] p-6">
+                        <h3 className="mb-1 text-lg font-bold text-white">
+                            Edit Rig Slot
+                        </h3>
+
+                        <p className="mb-4 text-xs text-slate-400">
+                            {activeRigCell.region} | Slot {activeRigCell.slot}
+                        </p>
+
+                        <label className="mb-1 block text-xs text-slate-400">
+                            Number
+                        </label>
+
+                        <input
+                            type="number"
+                            value={rigNum}
+                            onChange={(e) => setRigNum(e.target.value)}
+                            className="mb-3 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                        />
+
+                        <label className="mb-1 block text-xs text-slate-400">
+                            Note
+                        </label>
+
+                        <textarea
+                            value={rigNote}
+                            onChange={(e) => setRigNote(e.target.value)}
+                            className="h-20 w-full rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white"
+                        />
+
+                        <label className="mb-2 mt-4 block text-xs text-slate-400">
+                            Background color
+                        </label>
+
+                        <div className="space-y-2">
+                            {COLOR_OPTIONS.map((option) => (
+                                <label
+                                    key={option.key}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                                        rigColor === option.value
+                                            ? "border-white/30 bg-white/10 text-white"
+                                            : "border-white/10 bg-white/5 text-slate-300"
+                                    }`}
+                                >
+                                    <input
+                                        type="radio"
+                                        value={option.value}
+                                        checked={rigColor === option.value}
+                                        onChange={(e) =>
+                                            setRigColor(e.target.value)
+                                        }
+                                    />
+
+                                    <span
+                                        className="h-3 w-3 rounded-full"
+                                        style={{
+                                            backgroundColor: option.value,
+                                        }}
+                                    />
+
+                                    {option.label}
+                                </label>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setIsRigModalOpen(false)}
+                                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-white"
+                            >
+                                Cancel
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleClearRigSlot}
+                                className="flex-1 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-sm font-semibold text-white"
+                            >
+                                Clear
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={handleSaveRigSlot}
+                                className="flex-1 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white"
+                            >
+                                Save
                             </button>
                         </div>
                     </div>
