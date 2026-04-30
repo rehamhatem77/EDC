@@ -255,37 +255,29 @@ export default function Dashboard() {
         setIsModalOpen(false);
     };
 
-    const handleClearSlot = () => {
-        const nextState = structuredClone(scheduleByWeek);
-        const weekRecord = nextState[selectedWeek];
-        const dayRecord = weekRecord?.[activeCell.day];
-        const currentItem = dayRecord?.[activeCell.slot];
+   const handleClearSlot = () => {
+    const nextState = structuredClone(scheduleByWeek);
+    const weekRecord = nextState[selectedWeek];
+    const dayRecord = weekRecord?.[activeCell.day];
 
-        if (!currentItem) {
-            return;
-        }
+    if (!dayRecord?.[activeCell.slot]) {
+        return;
+    }
 
-        if (currentItem.groupId) {
-            Object.keys(dayRecord).forEach((slotKey) => {
-                if (dayRecord[slotKey]?.groupId === currentItem.groupId) {
-                    delete dayRecord[slotKey];
-                }
-            });
-        } else {
-            delete dayRecord[activeCell.slot];
-        }
 
-        if (Object.keys(dayRecord).length === 0) {
-            delete weekRecord[activeCell.day];
-        }
+    delete dayRecord[activeCell.slot];
 
-        if (Object.keys(weekRecord).length === 0) {
-            delete nextState[selectedWeek];
-        }
+   
+    if (Object.keys(dayRecord).length === 0) {
+        delete weekRecord[activeCell.day];
+    }
+    if (Object.keys(weekRecord).length === 0) {
+        delete nextState[selectedWeek];
+    }
 
-        saveToLocalStorage(nextState);
-        setIsModalOpen(false);
-    };
+    saveToLocalStorage(nextState);
+    setIsModalOpen(false);
+};
 
     return (
         <AuthenticatedLayout>
